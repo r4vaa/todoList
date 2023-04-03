@@ -3,7 +3,7 @@ const app = express();
 const bodyParser = require('body-parser');
 const date = require(__dirname + '/date.js')
 const mongoose = require('mongoose');
-const { redirect } = require('express/lib/response');
+const _ = require('lodash');
 
 
 
@@ -16,7 +16,7 @@ app.use(express.static('public'))
 
 app.set('view engine', 'ejs');
 
-mongoose.connect('mongodb://127.0.0.1:27017/todolistDB', { useNewUrlParser : true});
+mongoose.connect('mongodb+srv://admin-dheeraj:Test123@cluster1.vcdk5jr.mongodb.net/todolistDB', { useNewUrlParser : true});
 
 const itemsSchema = new mongoose.Schema ({
     name : String
@@ -77,22 +77,40 @@ app.get('/' , function(req , res){
 
 app.post('/', function(req, res){
     const itemName = req.body.newItem ;
+    const listName = req.body.list;
     const item = new Item({
         name : itemName
-    });
-    item.save()
-    res.redirect('/')
+    })
+    if(listName === "Today"){
+        item.save()
+        res.redirect('/')
+    }else{
+        List.findOne({name : listName}).then(foundList => {
+            foundList.items.push(item)
+            foundList.save()
+            res.redirect('/' + listName)
+        })
+    }
+    
    
 })
 
 app.post('/delete', async function(req, res) {
     const checkedItemId = req.body.checkbox;
-    const deletedItem = await Item.findByIdAndRemove({ _id: checkedItemId })
-    res.redirect('/')
+    const listName = req.body.listName;
+    
+    if(listName === 'Today'){
+        const deletedItem = await Item.findByIdAndRemove({ _id: checkedItemId })
+        res.redirect('/')
+    }else{
+       const deleteItem = await List.findOneAndUpdate({name : listName} , { $pull: {items: {_id: checkedItemId }}})
+       res.redirect('/' + listName)
+    }
+    
 })
 
 app.get('/:list', async function(req, res) {
-   const customListName =  req.params.list;
+   const customListName =  _.capitalize(req.params.list);
     List.findOne({name : customListName}).then(data => {
         if(!data){
             //Create a new list
@@ -115,6 +133,8 @@ app.get('/about' , function(req, res) {
     res.render('about')
 })
 
-app.listen(3000, function(){
-    console.log('LISTENING TO PORT 3000');
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, function(){
+    console.log('Server has started successfully');
 })
